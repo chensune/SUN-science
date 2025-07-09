@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>理化教室 - 章節練習</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 隱藏預設的 radio button */
+        .custom-radio input {
+            display: none;
+        }
+        /* 客製化 radio button 外觀 */
+        .custom-radio label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease-in-out;
+        }
+        /* 選中時的樣式 */
+        .custom-radio input:checked + label {
+            border-color: #38b2ac; /* teal-500 */
+            background-color: #e6fffa; /* teal-50 */
+            box-shadow: 0 0 0 2px rgba(56, 178, 172, 0.4);
+        }
+        /* 頁面切換時的過渡效果 */
+        .view {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .view.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        /* 列印專用樣式 */
+        @media print {
+            body {
+                background-color: white;
+            }
+            header, footer, .no-print {
+                display: none !important;
+            }
+            #results-view, #mistake-notebook {
+                display: block !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .mistake-card {
+                page-break-inside: avoid;
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+    <header class="bg-white shadow-md no-print">
+        <div class="container mx-auto px-6 py-4">
+            <h1 class="text-3xl font-bold text-teal-600">KO 理化教室</h1>
+            <p class="text-gray-600 mt-1">互動式章節練習與錯題本</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-6">
+        <!-- View 1: 章節選擇畫面 -->
+        <div id="chapter-selection-view" class="view active">
+            <h2 class="text-2xl font-bold mb-6 text-center">請選擇要練習的章節</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                <button data-chapter="chapter1" class="chapter-btn bg-teal-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-teal-600 transition-transform transform hover:scale-105">
+                    第一章：基本測量與實驗室操作
+                </button>
+                <button data-chapter="chapter2" class="chapter-btn bg-sky-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-sky-600 transition-transform transform hover:scale-105">
+                    第二章：密度與物質三態
+                </button>
+                <button data-chapter="chapter3" class="chapter-btn bg-indigo-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-indigo-600 transition-transform transform hover:scale-105">
+                    第三章：溶液與濃度
+                </button>
+                <button data-chapter="chapter4" class="chapter-btn bg-rose-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-rose-600 transition-transform transform hover:scale-105">
+                    第四章：空氣與氣體製備
+                </button>
+            </div>
+        </div>
+
+        <!-- View 2: 測驗作答畫面 -->
+        <div id="quiz-view" class="view">
+            <h2 id="quiz-title" class="text-2xl font-bold mb-6">章節測驗</h2>
+            <form id="quiz-form">
+                <!-- 題目會動態插入此處 -->
+            </form>
+            <div class="mt-8 text-center">
+                <button id="submit-btn" class="no-print bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 text-lg">
+                    提交答案
+                </button>
+            </div>
+        </div>
+
+        <!-- View 3: 成績與錯題本畫面 -->
+        <div id="results-view" class="view">
+            <div class="bg-white p-8 rounded-lg shadow-lg">
+                <h2 class="text-3xl font-bold mb-4 text-center">測驗結果</h2>
+                <p class="text-5xl font-bold text-center mb-6 text-teal-600" id="score-display">0 / 100</p>
+                <div id="mistake-notebook">
+                    <h3 class="text-xl font-bold border-b-2 border-gray-300 pb-2 mb-4">我的錯題本</h3>
+                    <!-- 錯題會動態插入此處 -->
+                </div>
+                <div class="mt-8 flex justify-center gap-4 no-print">
+                    <button id="print-btn" class="bg-blue-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-600">列印錯題本</button>
+                    <button id="restart-btn" class="bg-gray-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-600">選擇其他章節</button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="text-center py-4 text-gray-500 text-sm no-print">
+        <p>此為教學示範 App，內容擷取自提供之教材</p>
+    </footer>
+
+<script>
+// --- 題庫資料 ---
+const quizBank = {
+    chapter1: [
+        { question: "稀釋濃硫酸時，正確的操作方法為何？", options: ["將水緩緩倒入濃硫酸中", "將濃硫酸緩緩倒入水中並攪拌", "將水和濃硫酸同時倒入燒杯", "先加熱濃硫酸再加水"], answer: "將濃硫酸緩緩倒入水中並攪拌", explanation: "濃硫酸溶於水會放出大量熱能，必須將密度較大的硫酸倒入水中，並不斷攪拌散熱，才能避免液體因瞬間沸騰而噴濺。"},
+        { question: "使用量筒讀取水的體積時，視線應該如何？", options: ["由上往下斜看", "由下往上斜看", "與液面中央最低處等高平視", "與液面邊緣最高處等高平視"], answer: "與液面中央最低處等高平視", explanation: "水的表面張力會使其液面中央下凹，讀取刻度時應平視液面中央的最低點，才能得到準確的讀值。"},
+        { question: "小明用一支最小刻度為公釐(mm)的直尺，測量書本長度為 15.25 公分，請問哪個數字是估計值？", options: ["1", "5", "2", "此紀錄不合理"], answer: "5", explanation: "最小刻度是 mm (0.1 cm)，測量結果應記錄到最小刻度的下一位，即 cm 的小數點後第二位。15.2 是準確值，最後一位 5 是估計值。"},
+        { question: "在天平歸零前，若指針偏向右側，應如何調整校準螺絲？（此為上皿天平）", options: ["將左側螺絲向右旋出", "將右側螺絲向左旋入", "將右側螺絲向右旋出", "不需調整"], answer: "將右側螺絲向左旋入", explanation: "上皿天平指針偏右，代表右盤較重。歸零的原則是「將螺絲移向較輕的那一側」，因此應將右側螺絲向左（內側）旋入，或將左側螺絲向左（外側）旋出。"},
+        { question: "下列何種實驗室器材不可以直接用酒精燈加熱？", options: ["燒杯", "錐形瓶", "蒸發皿", "量筒"], answer: "量筒", explanation: "量筒是玻璃製的測量體積工具，其玻璃未經耐熱處理，直接加熱會導致破裂，且會使測量不準確。"},
+        { question: "小華測量某物體得到長度為 1.682 公尺，則他使用的測量工具，最小刻度可能為多少？", options: ["1 公尺", "1 公分", "1 公釐", "0.1 公釐"], answer: "1 公分", explanation: "測量結果 1.682 公尺，估計值是最後一位的 2 (0.001公尺)。最小刻度是估計值的前一位，即 0.01 公尺，也就是 1 公分。"},
+        { question: "欲從量筒中取出 35.0 mL 的溶液，下列何種方式最為精確？", options: ["直接倒出", "使用燒杯輔助", "使用滴管逐滴添加或吸出", "使用玻璃棒引流"], answer: "使用滴管逐滴添加或吸出", explanation: "為了精確達到 35.0 mL，在接近刻度線時，應改用滴管來精細調控液面高度。"},
+        { question: "將一個物體放在已歸零的天平左盤，右盤放置一個 50g 和一個 5g 的砝碼後恰好平衡。若砝碼生鏽了，該物體的真實質量為何？", options: ["大於 55g", "等於 55g", "小於 55g", "無法判斷"], answer: "小於 55g", explanation: "砝碼生鏽會使其質量增加，因此標示 55g 的生鏽砝碼，其實際質量大於 55g。為了平衡，物體的真實質量必然小於 55g。"},
+        // ... 此處可繼續為 Chapter 1 新增題目至30題
+    ],
+    chapter2: [
+        { question: "將質量 40g、體積 50cm³ 的木塊投入水中，木塊會如何？（水的密度為 1.0 g/cm³）", options: ["浮在水面", "完全沉沒水中但不上浮也不下沉", "沉到水底", "溶解"], answer: "浮在水面", explanation: "木塊的密度 D = M/V = 40g / 50cm³ = 0.8 g/cm³。因為木塊密度小於水的密度(1.0 g/cm³)，所以會浮在水面上。"},
+        { question: "下列何者為物理變化？", options: ["鐵生鏽", "光合作用", "水蒸發", "食物腐敗"], answer: "水蒸發", explanation: "物理變化沒有產生新物質，僅是物質狀態的改變。水蒸發是液態水變成氣態水，本質不變。"},
+        { question: "物質由固態直接變成氣態的過程稱為什麼？", options: ["熔化", "汽化", "昇華", "凝華"], answer: "昇華", explanation: "昇華是物質三態變化中，由固態不經過液態直接變為氣態的現象，例如乾冰。"},
+        { question: "一杯 100g 的水在 4°C 時，體積最小。若將其溫度升高到 10°C 或降低到 1°C，其密度會如何變化？", options: ["都變大", "都變小", "都維持不變", "升高時變大，降低時變小"], answer: "都變小", explanation: "水在 4°C 時密度最大。當溫度偏離 4°C（無論升高或降低），體積會膨脹，因此密度會變小。"},
+        { question: "甲、乙兩物體質量比為 2:1，體積比為 1:2，則甲、乙的密度比為何？", options: ["1:1", "2:1", "1:4", "4:1"], answer: "4:1", explanation: "密度 = 質量/體積。D甲:D乙 = (M甲/V甲) : (M乙/V乙) = (2/1) : (1/2) = 2 : 0.5 = 4:1。"},
+        { question: "將同一塊鐵塊，分別在地球和月球上用天平測量其質量，結果會如何？", options: ["地球上測得的質量較大", "月球上測得的質量較大", "兩者測得的質量相等", "在月球上無法測量"], answer: "兩者測得的質量相等", explanation: "質量是物質所含的量，不隨地點改變。天平是利用兩側力矩平衡來比較質量，因此在不同重力場下測量同一物體，結果會相同。"},
+        { question: "有一金屬塊，質量為 193g，投入量筒後水面從 100mL 上升到 110mL，此金屬最可能是？（金密度19.3 g/cm³，銀10.5 g/cm³）", options: ["金", "銀", "鐵", "鋁"], answer: "金", explanation: "金屬塊體積 = 110mL - 100mL = 10mL = 10cm³。密度 = 193g / 10cm³ = 19.3 g/cm³，此密度與金的密度相符。"},
+        { question: "在質量(M)與體積(V)的關係圖中，同種物質的圖形會是一條什麼樣的線？", options: ["通過原點的斜直線", "水平線", "垂直線", "曲線"], answer: "通過原點的斜直線", explanation: "對同種物質而言，密度(D)是定值。根據 M=D×V，質量與體積成正比，其關係圖是一條通過原點的斜直線，斜率即為密度。"},
+        // ... 此處可繼續為 Chapter 2 新增題目至30題
+    ],
+    chapter3: [
+        { question: "將 25 公克食鹽加入 75 公克水中，完全溶解後，其重量百分率濃度為多少？", options: ["25%", "33.3%", "75%", "20%"], answer: "25%", explanation: "溶液質量 = 溶質+溶劑 = 25g+75g = 100g。濃度 = (溶質質量/溶液質量) × 100% = (25g/100g) × 100% = 25%。"},
+        { question: "在室溫下，對一杯未飽和的食鹽水溶液，要如何使其達到飽和狀態？", options: ["加入更多水", "升高溫度", "加入更多食鹽並攪拌", "倒掉一半溶液"], answer: "加入更多食鹽並攪拌", explanation: "未飽和溶液代表還能繼續溶解溶質。加入更多食鹽，直到無法再溶解為止，即可達到飽和。"},
+        { question: "大部分固體（如硝酸鉀）的溶解度，會隨著溫度的升高如何變化？", options: ["變大", "變小", "不變", "不一定"], answer: "變大", explanation: "對大多數固體而言，溫度越高，分子的動能越大，越容易克服晶格能而溶於溶劑中，因此溶解度會隨溫度升高而變大。"},
+        { question: "在碘酒中，酒精扮演什麼角色？", options: ["溶質", "溶劑", "溶液", "催化劑"], answer: "溶劑", explanation: "碘酒是將固態的碘溶解在液態的酒精中所形成的溶液。因此，碘是溶質，酒精是溶劑。"},
+        { question: "打開汽水瓶蓋時，會冒出大量氣泡，這是因為什麼性質改變了？", options: ["溫度升高，溶解度變小", "溫度降低，溶解度變大", "壓力變小，氣體溶解度變小", "壓力變大，氣體溶解度變大"], answer: "壓力變小，氣體溶解度變小", explanation: "汽水是將二氧化碳在高壓下溶入水中。開瓶後，壓力瞬間降低，導致二氧化碳的溶解度大幅下降而逸出，形成氣泡。"},
+        { question: "一杯 10%、100g 的糖水，倒掉一半後，剩下糖水的濃度為多少？", options: ["5%", "10%", "20%", "無法確定"], answer: "10%", explanation: "溶液是均勻的混合物，倒掉一半並不會改變其組成的比例，因此濃度維持不變，仍然是 10%。"},
+        { question: "在定溫下，一杯飽和糖水底部尚有未溶的糖。若加入更多水，下列敘述何者正確？", options: ["濃度會變大", "溶解度會變大", "底部的糖會繼續溶解，直到全部溶解或再次飽和", "濃度會變小"], answer: "底部的糖會繼續溶解，直到全部溶解或再次飽和", explanation: "加入更多溶劑（水），會使未溶解的溶質（糖）繼續溶解，直到全部溶解（變成未飽和）或水用完（再次飽和）為止。此過程中，只要底部還有糖，溶液就一直處於飽和狀態，濃度不變。"},
+        // ... 此處可繼續為 Chapter 3 新增題目至30題
+    ],
+    chapter4: [
+        { question: "空氣中含量最多的氣體為何？", options: ["氧氣", "氮氣", "二氧化碳", "氬氣"], answer: "氮氣", explanation: "在乾燥空氣中，氮氣(N₂)的體積約佔 78%，是含量最多的成分。"},
+        { question: "下列何種氣體具有助燃性？", options: ["氮氣", "氫氣", "二氧化碳", "氧氣"], answer: "氧氣", explanation: "氧氣(O₂)本身不可燃，但能幫助其他物質燃燒，此性質稱為助燃性。"},
+        { question: "欲檢驗某氣體是否為二氧化碳，應將氣體通入下列何種溶液？", options: ["鹽酸", "蒸餾水", "澄清石灰水", "酒精"], answer: "澄清石灰水", explanation: "二氧化碳與澄清石灰水（氫氧化鈣溶液）反應會產生白色的碳酸鈣沉澱，這是檢驗二氧化碳的標準方法。"},
+        { question: "在實驗室中，通常使用大理石（主要成分為碳酸鈣）和下列何種藥品反應來製造二氧化碳？", options: ["濃硫酸", "稀鹽酸", "氫氧化鈉", "雙氧水"], answer: "稀鹽酸", explanation: "碳酸鈣會與酸反應產生二氧化碳。使用稀鹽酸反應速率適中且產物氯化鈣可溶於水，方便收集氣體。"},
+        { question: "下列何種氣體的密度比空氣小，且化學性質不活潑，常用於填充氣球以取代危險的氫氣？", options: ["氧氣", "氮氣", "氦氣", "氖氣"], answer: "氦氣", explanation: "氦氣(He)是鈍氣，化學性質非常不活潑（安全），且其密度遠小於空氣，因此能提供足夠的浮力，是填充氣球的理想氣體。"},
+        { question: "食品包裝中填充氮氣的主要目的為何？", options: ["增加重量", "提供養分", "利用其化學性質安定，隔絕氧氣以防止食物氧化", "使包裝看起來比較大"], answer: "利用其化學性質安定，隔絕氧氣以防止食物氧化", explanation: "氮氣化學性質非常不活潑，不易與食物反應。填充氮氣可以將包裝內的氧氣和水氣排出，有效防止食物因氧化或受潮而變質。"},
+        { question: "收集氧氣時，若使用排水集氣法，是利用氧氣的何種性質？", options: ["有助燃性", "比空氣重", "難溶於水", "無色無味"], answer: "難溶于水", explanation: "排水集氣法適用於收集難溶或不溶於水的氣體。因為氧氣在水中的溶解度很小，所以可以用此方法收集。"},
+        // ... 此處可繼續為 Chapter 4 新增題目至30題
+    ]
+};
+
+// --- 程式邏輯 ---
+document.addEventListener('DOMContentLoaded', () => {
+    // 獲取所有畫面和按鈕的 DOM 元素
+    const views = document.querySelectorAll('.view');
+    const chapterSelectionView = document.getElementById('chapter-selection-view');
+    const quizView = document.getElementById('quiz-view');
+    const resultsView = document.getElementById('results-view');
+    
+    const quizTitle = document.getElementById('quiz-title');
+    const quizForm = document.getElementById('quiz-form');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    const scoreDisplay = document.getElementById('score-display');
+    const mistakeNotebook = document.getElementById('mistake-notebook');
+    const printBtn = document.getElementById('print-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    // 全域變數，用於儲存當前測驗狀態
+    let currentQuizQuestions = [];
+    let userAnswers = {};
+
+    // 函數：切換顯示的畫面
+    function showView(viewId) {
+        views.forEach(view => {
+            view.classList.remove('active');
+        });
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    // 函數：洗牌演算法，用於隨機排列題目
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // 函數：開始測驗
+    function startQuiz(chapterKey) {
+        const chapterName = document.querySelector(`[data-chapter="${chapterKey}"]`).textContent.trim();
+        quizTitle.textContent = chapterName;
+
+        const allQuestions = quizBank[chapterKey];
+        currentQuizQuestions = shuffleArray([...allQuestions]).slice(0, 6); // 隨機抽取6題
+        userAnswers = {}; // 重置答案記錄
+        renderQuiz();
+        showView('quiz-view');
+    }
+
+    // 函數：渲染測驗題目到畫面上
+    function renderQuiz() {
+        quizForm.innerHTML = '';
+        currentQuizQuestions.forEach((q, index) => {
+            const questionCard = document.createElement('div');
+            questionCard.className = 'bg-white p-6 rounded-lg shadow-md mb-6';
+            
+            // 隨機排列選項
+            const shuffledOptions = shuffleArray([...q.options]);
+
+            const optionsHtml = shuffledOptions.map((option, optionIndex) => `
+                <div class="custom-radio">
+                    <input type="radio" id="q${index}_opt${optionIndex}" name="question_${index}" value="${option}">
+                    <label for="q${index}_opt${optionIndex}">${option}</label>
+                </div>
+            `).join('');
+
+            questionCard.innerHTML = `
+                <p class="text-lg font-semibold mb-4">${index + 1}. ${q.question}</p>
+                <div class="space-y-3">${optionsHtml}</div>
+            `;
+            quizForm.appendChild(questionCard);
+        });
+    }
+    
+    // 函數：提交答案並計分
+    function submitAndGradeQuiz() {
+        let score = 0;
+        const mistakes = [];
+
+        currentQuizQuestions.forEach((q, index) => {
+            const correctAnswer = q.answer;
+            const userAnswer = userAnswers[index];
+
+            if (userAnswer === correctAnswer) {
+                score++;
+            } else {
+                mistakes.push({
+                    question: q.question,
+                    options: q.options,
+                    userAnswer: userAnswer || "未作答",
+                    correctAnswer: correctAnswer,
+                    explanation: q.explanation
+                });
+            }
+        });
+
+        const finalScore = Math.round((score / currentQuizQuestions.length) * 100);
+        renderResults(finalScore, mistakes);
+        showView('results-view');
+    }
+
+    // 函數：渲染結果和錯題本
+    function renderResults(score, mistakes) {
+        scoreDisplay.textContent = `${score} / 100`;
+        mistakeNotebook.innerHTML = '<h3 class="text-xl font-bold border-b-2 border-gray-300 pb-2 mb-4">我的錯題本</h3>';
+
+        if (mistakes.length === 0) {
+            mistakeNotebook.innerHTML += '<p class="text-green-600 font-semibold">太棒了！全部答對！</p>';
+        } else {
+            mistakes.forEach((mistake, index) => {
+                const mistakeCard = document.createElement('div');
+                mistakeCard.className = 'mistake-card bg-red-50 border border-red-200 p-4 rounded-lg mb-4';
+                mistakeCard.innerHTML = `
+                    <p class="font-bold mb-2">${index + 1}. ${mistake.question}</p>
+                    <p class="text-sm">你的答案：<span class="font-semibold text-red-600">${mistake.userAnswer}</span></p>
+                    <p class="text-sm">正確答案：<span class="font-semibold text-green-700">${mistake.correctAnswer}</span></p>
+                    <div class="mt-2 pt-2 border-t border-red-100">
+                        <p class="text-sm text-gray-700"><strong>[概念解析]</strong> ${mistake.explanation}</p>
+                    </div>
+                `;
+                mistakeNotebook.appendChild(mistakeCard);
+            });
+        }
+    }
+
+    // --- 事件監聽 ---
+    
+    // 監聽章節選擇按鈕
+    chapterSelectionView.addEventListener('click', (e) => {
+        if (e.target.matches('.chapter-btn')) {
+            const chapterKey = e.target.dataset.chapter;
+            startQuiz(chapterKey);
+        }
+    });
+
+    // 監聽使用者選擇答案
+    quizForm.addEventListener('change', (e) => {
+        if (e.target.type === 'radio') {
+            const questionIndex = parseInt(e.target.name.split('_')[1]);
+            userAnswers[questionIndex] = e.target.value;
+        }
+    });
+    
+    // 監聽提交按鈕
+    submitBtn.addEventListener('click', (e) => {
+        e.preventDefault(); // 防止表單預設提交行為
+        if (Object.keys(userAnswers).length < currentQuizQuestions.length) {
+            if (!confirm('您還有題目未作答，確定要提交嗎？')) {
+                return;
+            }
+        }
+        submitAndGradeQuiz();
+    });
+
+    // 監聽列印按鈕
+    printBtn.addEventListener('click', () => {
+        window.print();
+    });
+
+    // 監聽返回選擇章節按鈕
+    restartBtn.addEventListener('click', () => {
+        showView('chapter-selection-view');
+    });
+
+});
+</script>
+
+</body>
+</html>
