@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>理化教室 - 章節練習</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 隱藏預設的 radio button */
+        .custom-radio input {
+            display: none;
+        }
+        /* 客製化 radio button 外觀 */
+        .custom-radio label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+            background-color: white;
+        }
+        .custom-radio label:hover {
+            background-color: #f7fafc; /* gray-100 */
+        }
+        /* 選中時的樣式 */
+        .custom-radio input:checked + label {
+            border-color: #38b2ac; /* teal-500 */
+            background-color: #e6fffa; /* teal-50 */
+            box-shadow: 0 0 0 2px rgba(56, 178, 172, 0.4);
+        }
+        /* 頁面切換時的過渡效果 */
+        .view {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .view.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* 列印專用樣式 */
+        @media print {
+            body {
+                background-color: white;
+                font-size: 12pt;
+            }
+            header, footer, .no-print {
+                display: none !important;
+            }
+            #results-view, #mistake-notebook {
+                display: block !important;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .mistake-card {
+                page-break-inside: avoid;
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                margin-bottom: 1.5rem;
+            }
+            h2, h3 {
+                border: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+    <header class="bg-white shadow-md no-print">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-teal-600">KO 理化教室</h1>
+                <p class="text-gray-600 mt-1">互動式章節練習與錯題本</p>
+            </div>
+            <div id="back-to-chapters-container" class="hidden">
+                 <button id="back-to-chapters-btn" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">← 返回章節列表</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-6">
+        <!-- View 1: 章節選擇畫面 -->
+        <div id="chapter-selection-view" class="view active">
+            <h2 class="text-2xl font-bold mb-6 text-center">請選擇要練習的單元</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+                <button data-chapter="waves_ch1" class="chapter-btn bg-blue-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-blue-600 transition-transform transform hover:scale-105 shadow-lg">
+                    波動的種類與性質
+                </button>
+                <button data-chapter="waves_ch2" class="chapter-btn bg-green-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-600 transition-transform transform hover:scale-105 shadow-lg">
+                    聲音的傳播
+                </button>
+                <button data-chapter="waves_ch3" class="chapter-btn bg-purple-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-purple-600 transition-transform transform hover:scale-105 shadow-lg">
+                    波動的反射與回聲
+                </button>
+                <button data-chapter="waves_ch4" class="chapter-btn bg-red-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-red-600 transition-transform transform hover:scale-105 shadow-lg">
+                    聲音的三要素
+                </button>
+            </div>
+        </div>
+
+        <!-- View 2: 測驗作答畫面 -->
+        <div id="quiz-view" class="view">
+            <h2 id="quiz-title" class="text-2xl font-bold mb-6 text-center">章節測驗</h2>
+            <form id="quiz-form" class="max-w-3xl mx-auto">
+                <!-- 題目會動態插入此處 -->
+            </form>
+            <div class="mt-8 text-center no-print">
+                <button id="submit-btn" class="bg-teal-600 text-white font-bold py-3 px-12 rounded-lg hover:bg-teal-700 text-xl shadow-lg transition-transform transform hover:scale-105">
+                    提交答案
+                </button>
+            </div>
+        </div>
+
+        <!-- View 3: 成績與錯題本畫面 -->
+        <div id="results-view" class="view">
+            <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
+                <h2 class="text-3xl font-bold mb-2 text-center">測驗結果</h2>
+                <p class="text-center text-gray-600 mb-4">你的得分是...</p>
+                <p class="text-6xl font-bold text-center mb-6 text-teal-600" id="score-display">0</p>
+                <div id="mistake-notebook" class="mt-6">
+                    <h3 class="text-2xl font-bold border-b-2 border-gray-300 pb-2 mb-4">我的錯題本</h3>
+                    <!-- 錯題會動態插入此處 -->
+                </div>
+                <div class="mt-8 flex flex-col md:flex-row justify-center gap-4 no-print">
+                    <button id="print-btn" class="bg-blue-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-600">列印錯題本</button>
+                    <button id="restart-btn" class="bg-gray-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-gray-600">再次挑戰本章</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<script>
+// --- 題庫資料 ---
+const quizBank = {
+    waves_ch1: [
+        { question: "波動在傳遞時，真正傳遞的是什麼？", options: ["介質本身", "能量", "波源", "形狀"], answer: "能量", explanation: "波動是能量傳遞的一種形式，介質只在原地進行振動，並不會隨波前進。" },
+        { question: "下列何者不屬於力學波，也就是傳遞時不需要介質？", options: ["聲波", "水波", "繩波", "光波"], answer: "光波", explanation: "力學波（如聲波、水波）需要介質才能傳遞。非力學波（電磁波，如光波、無線電波）則可以在真空中傳遞。" },
+        { question: "一個向右前進的橫波，若波上某點正向上運動，則該點的相鄰波谷位於其哪個方向？", options: ["右方", "左方", "正下方", "無法判斷"], answer: "左方", explanation: "對於向右前進的橫波，波形會向右平移。某點向上運動代表波峰正要到來，因此其左側應為剛經過的波谷。" },
+        { question: "波的「頻率」單位是赫茲(Hz)，其物理意義為何？", options: ["每秒鐘振動的距離", "每秒鐘振動的次數", "振動一次所需的時間", "振動一次的總能量"], answer: "每秒鐘振動的次數", explanation: "頻率(f)的定義是單位時間內完成的振動次數，單位為赫茲(Hz)，即「次/秒」。而振動一次所需的時間稱為「週期(T)」。" },
+        { question: "波速(v)、波長(λ)與頻率(f)三者的關係式為何？", options: ["v = f × λ", "f = v × λ", "λ = v × f", "v = f + λ"], answer: "v = f × λ", explanation: "波速等於波在一個週期(T)內前進的距離（即一個波長λ），v = λ/T。又因為頻率 f = 1/T，代入後可得 v = λ × f。" },
+        { question: "當一個繩波由細繩傳到粗繩時，下列哪個物理量會保持不變？", options: ["波速", "波長", "振幅", "頻率"], answer: "頻率", explanation: "波的頻率由波源決定。當波從一種介質傳到另一種介質時，其頻率不會改變。但波速、波長和振幅通常會發生變化。" },
+        { question: "若一個連續週期波的週期為 0.5 秒，則其頻率為多少赫茲(Hz)？", options: ["0.5 Hz", "1 Hz", "2 Hz", "5 Hz"], answer: "2 Hz", explanation: "頻率(f)和週期(T)互為倒數，f = 1/T。因此 f = 1 / 0.5s = 2 Hz。" },
+        { question: "在縱波中，介質最稀疏的位置稱為什麼？", options: ["波峰", "波谷", "密部", "疏部"], answer: "疏部", explanation: "縱波（如聲波）是藉由介質的疏密變化來傳遞。介質密度最高處稱為密部，密度最低處稱為疏部。" },
+        { question: "一個波的「振幅」大小，主要決定了波的何種特性？", options: ["速度快慢", "能量大小", "頻率高低", "波長長短"], answer: "能量大小", explanation: "振幅是介質偏離平衡位置的最大距離，振幅越大的波，所攜帶的能量也越大。" },
+        { question: "甩動繩子產生一個繩波，若甩動的頻率加倍，則繩波的波長會變成原來的多少倍？（假設波速不變）", options: ["2 倍", "不變", "1/2 倍", "4 倍"], answer: "1/2 倍", explanation: "根據 v = f × λ，在波速(v)不變的情況下，頻率(f)與波長(λ)成反比。當頻率變為 2 倍時，波長會變為原來的 1/2 倍。" },
+        // ...更多題目
+    ],
+    waves_ch2: [
+        { question: "聲音的產生，是因為發聲體產生了什麼現象？", options: ["發光", "發熱", "振動", "化學反應"], answer: "振動", explanation: "聲音的本質是物體的快速振動所引起的介質波動。" },
+        { question: "下列哪一個地點無法聽見聲音？", options: ["深海中", "高山上", "外太空", "鋼鐵軌道上"], answer: "外太空", explanation: "聲音的傳播需要介質（固、液、氣體）。外太空接近真空狀態，沒有介質可以傳遞聲波，因此聽不見聲音。" },
+        { question: "一般情況下，聲音在下列何種介質中傳播最快？", options: ["空氣", "水", "鋼鐵", "真空"], answer: "鋼鐵", explanation: "聲音是力學波，介質的粒子排列越緊密，傳播速率越快。因此，聲速在固體 > 液體 > 氣體。" },
+        { question: "影響空氣中聲速的主要因素為何？", options: ["氣壓", "風速", "聲音的音量", "溫度"], answer: "溫度", explanation: "在空氣中，溫度是影響聲速最主要的因素。溫度越高，空氣分子運動越快，聲速也越快。其關係約為 v = 331 + 0.6T (T為攝氏溫度)。" },
+        { question: "在15°C的乾燥空氣中，聲速大約是多少 m/s？", options: ["331 m/s", "340 m/s", "343 m/s", "337 m/s"], answer: "340 m/s", explanation: "利用公式 v = 331 + 0.6T 計算，v = 331 + 0.6 × 15 = 331 + 9 = 340 m/s。" },
+        { question: "甲乙兩人分別在A、B兩點，A點順風，B點逆風。若兩人同時對著對方大喊，誰會先聽到對方的聲音？（假設兩人與風的相對位置相同）", options: ["甲先聽到", "乙先聽到", "同時聽到", "都聽不到"], answer: "甲先聽到", explanation: "聲速會受到風速影響。順風時，聲速 = 空氣中聲速 + 風速；逆風時，聲速 = 空氣中聲速 - 風速。因此順風處的甲會先聽到。" },
+        { question: "人類耳朵可以聽見的聲音頻率範圍大約是多少？", options: ["0 ~ 100 Hz", "20 ~ 20000 Hz", "1000 ~ 50000 Hz", "高於 20000 Hz"], answer: "20 ~ 20000 Hz", explanation: "人類的聽覺範圍有限，通常能聽見的頻率介於 20 Hz 到 20000 Hz 之間。" },
+        { question: "看見遠方閃電後，過了 5 秒才聽見雷聲，假設當時聲速為 340 m/s，則閃電發生地點距離你多遠？", options: ["340 m", "68 m", "1700 m", "無法計算"], answer: "1700 m", explanation: "光的傳播速度極快，可忽略其時間。距離 = 聲速 × 時間 = 340 m/s × 5 s = 1700 公尺。" },
+        // ...更多題目
+    ],
+    waves_ch3: [
+        { question: "聲音撞到障礙物後返回的現象稱為什麼？", options: ["折射", "繞射", "反射", "干涉"], answer: "反射", explanation: "波動遇到障礙物後彈回原介質的現象稱為反射，聲音的反射就是我們熟知的回聲或迴盪。" },
+        { question: "要能清楚分辨出原聲和回聲，兩者聲音到達耳朵的時間至少要相隔多少秒？", options: ["0.01 秒", "0.1 秒", "1 秒", "0.5 秒"], answer: "0.1 秒", explanation: "人耳的聽覺暫留約為 0.1 秒。如果原聲和回聲的間隔小於此時間，兩者會疊加在一起，使聲音聽起來更響亮，但無法分辨出是回聲。" },
+        { question: "在室溫下（聲速約 340 m/s），你至少要距離牆壁多遠，才能聽到自己大喊後的回聲？", options: ["34 公尺", "17 公尺", "8.5 公尺", "340 公尺"], answer: "17 公尺", explanation: "聲音需要傳播來回，總路程 = 2 × 距離。所需時間 = 總路程 / 聲速。0.1s = (2 × d) / 340m/s，計算可得 d = 17 公尺。" },
+        { question: "下列何者不是利用回聲（聲波反射）原理的應用？", options: ["船隻上的聲納探測海底地形", "蝙蝠在夜間飛行", "戴上傳聲筒讓聲音傳更遠", "聽診器聽心跳"], answer: "戴上傳聲筒讓聲音傳更遠", explanation: "傳聲筒是利用管壁的連續反射，將聲音的能量集中在特定方向傳播，減少能量的發散。其他選項皆為接收反射波的應用。" },
+        { question: "頻率高於 20000 Hz，人耳聽不見的聲音稱為什麼？", options: ["次聲波", "超聲波", "噪音", "樂音"], answer: "超聲波", explanation: "超過人類聽覺上限 (20000 Hz) 的聲波稱為超聲波（或超音波）。" },
+        { question: "在空曠的大禮堂說話，感覺聲音特別響亮，這是什麼原因？", options: ["空間大，聲音可以傳比較遠", "原聲與間隔小於 0.1 秒的回聲疊加", "心理作用", "禮堂的吸音效果好"], answer: "原聲與間隔小於 0.1 秒的回聲疊加", explanation: "在室內，牆壁反射的回聲與原聲的時間差通常很小，兩者疊加會使聲音的振幅（響度）增強，產生迴盪效果。" },
+        { question: "一艘船以 10 m/s 的速度駛向山壁並鳴笛，2 秒後聽到回聲。若當時聲速為 340 m/s，則鳴笛時船與山壁的距離為何？", options: ["350 m", "340 m", "680 m", "330 m"], answer: "350 m", explanation: "聲音走的路程 = 船走的路程 + 2×鳴笛時距離。340×2 = 10×2 + 2d，680 = 20 + 2d，2d = 660，d = 330m。這是錯誤算法。正確算法：聲音走的路程 + 船走的路程 = 2d。340*2 + 10*2 = 2d。這也不對。正確算法：設鳴笛時距離為d。聲音走的時間2s。聲音走的路程=d+(d-10*2)。340*2 = d + d - 20, 680 = 2d - 20, 2d=700, d=350m。" },
+        // ...更多題目
+    ],
+    waves_ch4: [
+        { question: "聲音的「音調」高低是由什麼決定的？", options: ["振幅", "波速", "波形", "頻率"], answer: "頻率", explanation: "音調是聲音的高低，由發聲體振動的頻率決定。頻率越高，音調越高。" },
+        { question: "聲音的「響度」大小是由什麼決定的？", options: ["振幅", "波速", "波形", "頻率"], answer: "振幅", explanation: "響度是聲音的大小聲（音量），由聲波的振幅決定。振幅越大，能量越強，響度越大。" },
+        { question: "我們能分辨出小提琴和鋼琴即使彈奏相同音調和音量，聲音聽起來也不同，這是因為它們的什麼不同？", options: ["振幅（響度）", "頻率（音調）", "波形（音色）", "波速"], answer: "波形（音色）", explanation: "音色（或稱音品）是聲音的特色，由發聲體發出的波形決定。不同的樂器因其泛音組合不同，波形也不同，因此音色各異。" },
+        { question: "將吉他的一條弦拉得更緊，彈奏時發出的聲音會有什麼變化？", options: ["音調變高", "音調變低", "響度變大", "響度變小"], answer: "音調變高", explanation: "對弦樂器而言，弦越「短、細、緊」，振動頻率越高，音調就越高。" },
+        { question: "用力敲擊鼓面與輕輕敲擊，兩者發出的聲音主要差異在哪裡？", options: ["音調", "響度", "音色", "聲速"], answer: "響度", explanation: "用力敲擊會使鼓面產生更大的振動幅度（振幅），因此聲音的能量更強，聽起來更大聲（響度更大）。音調和音色主要由鼓的本身特性決定，不會因此改變。" },
+        { question: "在示波器上看到一個聲音的波形，若要讓其音調變高，應如何改變波形？", options: ["讓波的振幅變大", "讓波的振幅變小", "讓波在相同時間內出現更多次的完整波", "讓波在相同時間內出現更少次的完整波"], answer: "讓波在相同時間內出現更多次的完整波", explanation: "音調由頻率決定。在示波器上，頻率越高，代表波形越「密集」，即在相同時間內可以看到更多個完整的波。" },
+        { question: "令人感覺不舒服、不規律的聲音，通常稱為什麼？", options: ["樂音", "噪音", "純音", "泛音"], answer: "噪音", explanation: "樂音的波形通常是規律、週期性的。而噪音的波形則是不規則、雜亂的。" },
+        { question: "兩個頻率相同的音叉，敲擊其中一個，另一個未被敲擊的音叉也會跟著振動發聲，此現象稱為什麼？", options: ["反射", "共振", "干涉", "繞射"], answer: "共振", explanation: "共振（或共鳴）是指一個物體振動時，會引起另一個固有頻率與其相同或相近的物體也跟著振動的現象。" },
+        // ...更多題目
+    ]
+};
+
+// --- 程式邏輯 ---
+document.addEventListener('DOMContentLoaded', () => {
+    // 獲取所有畫面和按鈕的 DOM 元素
+    const views = document.querySelectorAll('.view');
+    const chapterSelectionView = document.getElementById('chapter-selection-view');
+    const quizView = document.getElementById('quiz-view');
+    const resultsView = document.getElementById('results-view');
+    
+    const quizTitle = document.getElementById('quiz-title');
+    const quizForm = document.getElementById('quiz-form');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    const scoreDisplay = document.getElementById('score-display');
+    const mistakeNotebook = document.getElementById('mistake-notebook');
+    const printBtn = document.getElementById('print-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const backToChaptersContainer = document.getElementById('back-to-chapters-container');
+    const backToChaptersBtn = document.getElementById('back-to-chapters-btn');
+
+    // 全域變數，用於儲存當前測驗狀態
+    let currentChapterKey = null;
+    let currentQuizQuestions = [];
+    let userAnswers = {};
+
+    // 函數：切換顯示的畫面
+    function showView(viewId) {
+        views.forEach(view => view.classList.remove('active'));
+        const activeView = document.getElementById(viewId);
+        if (activeView) activeView.classList.add('active');
+
+        // 控制返回按鈕的顯示
+        if (viewId === 'chapter-selection-view') {
+            backToChaptersContainer.classList.add('hidden');
+        } else {
+            backToChaptersContainer.classList.remove('hidden');
+        }
+    }
+
+    // 函數：洗牌演算法
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // 函數：開始測驗
+    function startQuiz(chapterKey) {
+        currentChapterKey = chapterKey;
+        const chapterName = document.querySelector(`[data-chapter="${chapterKey}"]`).textContent.trim();
+        quizTitle.textContent = chapterName;
+
+        const allQuestions = quizBank[chapterKey];
+        currentQuizQuestions = shuffleArray([...allQuestions]).slice(0, 10); // 隨機抽取10題
+        userAnswers = {}; // 重置答案記錄
+        renderQuiz();
+        showView('quiz-view');
+    }
+
+    // 函數：渲染測驗題目到畫面上
+    function renderQuiz() {
+        quizForm.innerHTML = '';
+        currentQuizQuestions.forEach((q, index) => {
+            const questionCard = document.createElement('div');
+            questionCard.className = 'bg-white p-6 rounded-lg shadow-md mb-6';
+            
+            const shuffledOptions = shuffleArray([...q.options]);
+
+            const optionsHtml = shuffledOptions.map((optionText, optionIndex) => {
+                const uniqueId = `q${index}_opt${optionIndex}`;
+                return `
+                <div class="custom-radio">
+                    <input type="radio" id="${uniqueId}" name="question_${index}" value="${optionText}">
+                    <label for="${uniqueId}">${optionText}</label>
+                </div>
+            `}).join('');
+
+            questionCard.innerHTML = `
+                <p class="text-lg font-semibold mb-4">${index + 1}. ${q.question}</p>
+                <div class="space-y-3">${optionsHtml}</div>
+            `;
+            quizForm.appendChild(questionCard);
+        });
+    }
+    
+    // 函數：提交答案並計分
+    function submitAndGradeQuiz() {
+        let score = 0;
+        const mistakes = [];
+
+        currentQuizQuestions.forEach((q, index) => {
+            const correctAnswer = q.answer;
+            const userAnswer = userAnswers[index];
+
+            if (userAnswer === correctAnswer) {
+                score++;
+            } else {
+                mistakes.push({
+                    question: q.question,
+                    userAnswer: userAnswer || "未作答",
+                    correctAnswer: correctAnswer,
+                    explanation: q.explanation
+                });
+            }
+        });
+
+        const finalScore = Math.round((score / currentQuizQuestions.length) * 100);
+        renderResults(finalScore, mistakes);
+        showView('results-view');
+    }
+
+    // 函數：渲染結果和錯題本
+    function renderResults(score, mistakes) {
+        scoreDisplay.textContent = score;
+        mistakeNotebook.innerHTML = '<h3 class="text-2xl font-bold border-b-2 border-gray-300 pb-2 mb-4">我的錯題本</h3>';
+
+        if (mistakes.length === 0) {
+            mistakeNotebook.innerHTML += '<p class="text-green-600 font-semibold p-4 bg-green-50 rounded-lg">太棒了！全部答對，這個單元沒有錯題！</p>';
+            printBtn.classList.add('hidden'); // 沒有錯題就隱藏列印按鈕
+        } else {
+            printBtn.classList.remove('hidden'); // 有錯題就顯示列印按鈕
+            mistakes.forEach((mistake, index) => {
+                const mistakeCard = document.createElement('div');
+                mistakeCard.className = 'mistake-card bg-red-50 border border-red-200 p-4 rounded-lg mb-4';
+                mistakeCard.innerHTML = `
+                    <p class="font-bold mb-2">${index + 1}. ${mistake.question}</p>
+                    <p class="text-sm">你的答案：<span class="font-semibold text-red-600">${mistake.userAnswer}</span></p>
+                    <p class="text-sm">正確答案：<span class="font-semibold text-green-700">${mistake.correctAnswer}</span></p>
+                    <div class="mt-2 pt-2 border-t border-red-100">
+                        <p class="text-sm text-gray-700"><strong>[概念解析]</strong> ${mistake.explanation}</p>
+                    </div>
+                `;
+                mistakeNotebook.appendChild(mistakeCard);
+            });
+        }
+    }
+
+    // --- 事件監聽 ---
+    
+    // 監聽章節選擇按鈕
+    chapterSelectionView.addEventListener('click', (e) => {
+        if (e.target.matches('.chapter-btn')) {
+            const chapterKey = e.target.dataset.chapter;
+            startQuiz(chapterKey);
+        }
+    });
+
+    // 監聽使用者選擇答案
+    quizForm.addEventListener('change', (e) => {
+        if (e.target.type === 'radio') {
+            const questionIndex = parseInt(e.target.name.split('_')[1]);
+            userAnswers[questionIndex] = e.target.value;
+        }
+    });
+    
+    // 監聽提交按鈕
+    submitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const answeredCount = Object.keys(userAnswers).length;
+        if (answeredCount < currentQuizQuestions.length) {
+            if (!confirm(`您還有 ${currentQuizQuestions.length - answeredCount} 題未作答，確定要提交嗎？`)) {
+                return;
+            }
+        }
+        submitAndGradeQuiz();
+    });
+
+    // 監聽列印按鈕
+    printBtn.addEventListener('click', () => {
+        window.print();
+    });
+
+    // 監聽再次挑戰按鈕
+    restartBtn.addEventListener('click', () => {
+        if(currentChapterKey) {
+            startQuiz(currentChapterKey);
+        }
+    });
+
+    // 監聽返回章節列表按鈕
+    backToChaptersBtn.addEventListener('click', () => {
+        showView('chapter-selection-view');
+    });
+
+});
+</script>
+
+</body>
+</html>
